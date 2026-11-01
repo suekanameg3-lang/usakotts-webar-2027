@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0"
+>
+
+<title>Usakotts Camera Test</title>
+
+
+<style>
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+
+  width: 100%;
+  height: 100%;
+
+  overflow: hidden;
+
+  background: black;
+}
+
+
+/* =========================
+   カメラ映像
+========================= */
+
+#camera {
+
+  position: fixed;
+
+  top: 0;
+  left: 0;
+
+  width: 100vw;
+  height: 100vh;
+
+  object-fit: cover;
+
+  z-index: 0;
+}
+
+
+/* =========================
+   Three.js
+========================= */
+
+canvas {
+
+  position: fixed;
+
+  top: 0;
+  left: 0;
+
+  width: 100vw;
+  height: 100vh;
+
+  display: block;
+
+  z-index: 1;
+}
+
+
+/* =========================
+   タイマー
+========================= */
+
+#timer {
+
+  position: fixed;
+
+  top: 15px;
+  left: 15px;
+
+  z-index: 10;
+
+  padding: 14px 18px;
+
+  color: white;
+
+  background:
+    rgba(0,0,0,0.65);
+
+  font-family:
+    monospace;
+
+  font-size: 30px;
+}
+
+
+/* =========================
+   START
+========================= */
+
+#startButton {
+
+  position: fixed;
+
+  top: 50%;
+  left: 50%;
+
+  transform:
+    translate(-50%, -50%);
+
+  z-index: 20;
+
+  padding:
+    20px 45px;
+
+  font-size:
+    32px;
+
+  font-weight:
+    bold;
+
+  cursor:
+    pointer;
+}
+
+
+/* =========================
+   ブラックアウト
+========================= */
+
+#blackout {
+
+  position: fixed;
+
+  inset: 0;
+
+  width: 100vw;
+  height: 100vh;
+
+  background: black;
+
+  opacity: 0;
+
+  pointer-events: none;
+
+  z-index: 999999;
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<!-- カメラ -->
+
+<video
+  id="camera"
+  autoplay
+  playsinline
+  muted>
+</video>
+
+
+<!-- タイマー -->
+
+<div id="timer">
+  カメラ接続中...
+</div>
+
+
+<!-- START -->
+
+<button
+  id="startButton"
+  disabled>
+  読み込み中...
+</button>
+
+
+<!-- ブラックアウト -->
+
+<div id="blackout"></div>
+
+
+<!-- 春の海 -->
+
+<audio
+  id="bgm"
+  src="./harunoumi.mp3"
+  preload="auto">
+</audio>
+
+
+
+<script type="importmap">
+
+{
+  "imports": {
+
+    "three":
+    "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+
+    "three/addons/":
+    "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+  }
+}
+
+</script>
+
+
+
+<script type="module">
+
+
+import * as THREE
+from 'three';
+
+
+import {
+  GLTFLoader
+}
+from 'three/addons/loaders/GLTFLoader.js';
+
+
+
+/* ==================================================
+   カメラ
+================================================== */
+
+const video =
+  document.getElementById(
+    'camera'
+  );
+
+
+async function startCamera() {
+
+  try {
+
+    const stream =
+      await navigator.mediaDevices.getUserMedia({
+
+        video: true,
+
+        audio: false
+
+      });
+
+
+    video.srcObject =
+      stream;
+
+
+    console.log(
+      'カメラ接続成功'
+    );
+
+  }
+
+
+  catch (error) {
+
+    console.error(
+      'カメラ接続エラー:',
+      error
+    );
+
+  }
+
+}
+
+
+startCamera();
+
+
+
+/* ==================================================
+   Three.js シーン
+================================================== */
+
+const scene =
+  new THREE.Scene();
+
+
+/*
+  scene.background は設定しない。
+
+  透明Canvasにして
+  背後のカメラ映像を見せる。
+*/
+
+
+
+/* ==================================================
+   3Dカメラ
+================================================== */
+
+const camera =
+  new THREE.PerspectiveCamera(
+
+    45,
+
+    window.innerWidth /
+    window.innerHeight,
+
+    0.01,
+
+    100
+
+  );
+
+
+camera.position.set(
+
+  0,
+  2,
+  20
+
+);
+
+
+
+/* ==================================================
+   ライト
+================================================== */
+
+const hemiLight =
+  new THREE.HemisphereLight(
+
+    0xffffff,
+
+    0x444444,
+
+    2
+
+  );
+
+
+scene.add(
+  hemiLight
+);
+
+
+
+const light =
+  new THREE.DirectionalLight(
+
+    0xffffff,
+
+    3
+
+  );
+
+
+light.position.set(
+
+  3,
+  5,
+  4
+
+);
+
+
+scene.add(
+  light
+);
+
+
+
+/* ==================================================
+   Renderer
+
+   alpha:true が重要
+================================================== */
+
+const renderer =
+  new THREE.WebGLRenderer({
+
+    antialias: true,
+
+    alpha: true
+
+  });
+
+
+renderer.setClearColor(
+
+  0x000000,
+
+  0
+
+);
+
+
+renderer.setPixelRatio(
+
+  window.devicePixelRatio
+
+);
+
+
+renderer.setSize(
+
+  window.innerWidth,
+
+  window.innerHeight
+
+);
+
+
+document.body.appendChild(
+
+  renderer.domElement
+
+);
+
+
+
+/* ==================================================
+   HTML
+================================================== */
+
+const timer =
+  document.getElementById(
+    'timer'
+  );
+
+
+const startButton =
+  document.getElementById(
+    'startButton'
+  );
+
+
+const bgm =
+  document.getElementById(
+    'bgm'
+  );
+
+
+const blackout =
+  document.getElementById(
+    'blackout'
+  );
+
+
+
+/* ==================================================
+   Web Audio
+================================================== */
+
+const audioContext =
+  new AudioContext();
+
+
+let seiBuffer =
+  null;
+
+
+let paBuffer =
+  null;
+
+
+let meeeBuffer =
+  null;
+
+
+
+async function loadAudioBuffer(
+  url
+) {
+
+  const response =
+    await fetch(
+      url
+    );
+
+
+  const arrayBuffer =
+    await response.arrayBuffer();
+
+
+  return await audioContext.decodeAudioData(
+
+    arrayBuffer
+
+  );
+
+}
+
+
+
+/* ==================================================
+   SE再生
+================================================== */
+
+function playSound(
+
+  buffer,
+
+  gainValue
+
+) {
+
+  if (!buffer) {
+
+    return;
+
+  }
+
+
+  const source =
+    audioContext.createBufferSource();
+
+
+  const gain =
+    audioContext.createGain();
+
+
+  source.buffer =
+    buffer;
+
+
+  gain.gain.value =
+    gainValue;
+
+
+  source.connect(
+    gain
+  );
+
+
+  gain.connect(
+    audioContext.destination
+  );
+
+
+  source.start(0);
+
+}
+
+
+
+/* ==================================================
+   SEタイミング
+   30fps
+================================================== */
+
+const SEI_TIME =
+  283 / 30;
+
+
+const PA_TIME =
+  348 / 30;
+
+
+const MEEE_TIME =
+  382 / 30;
+
+
+
+let seiPlayed =
+  false;
+
+
+let paPlayed =
+  false;
+
+
+let meeePlayed =
+  false;
+
+
+
+/* ==================================================
+   ブラックアウト
+
+   446F → 467F
+================================================== */
+
+const BLACK_START =
+  446 / 30;
+
+
+const BLACK_END =
+  467 / 30;
+
+
+
+/* ==================================================
+   Animation
+================================================== */
+
+let mixer =
+  null;
+
+
+let action =
+  null;
+
+
+let clipDuration =
+  0;
+
+
+let loopCount =
+  0;
+
+
+let started =
+  false;
+
+
+let modelLoaded =
+  false;
+
+
+let audioLoaded =
+  false;
+
+
+
+/* ==================================================
+   STARTボタン準備
+================================================== */
+
+function checkReady() {
+
+  if (
+    modelLoaded &&
+    audioLoaded
+  ) {
+
+    startButton.disabled =
+      false;
+
+
+    startButton.textContent =
+      'START';
+
+
+    timer.textContent =
+      '準備完了';
+
+  }
+
+}
+
+
+
+/* ==================================================
+   GLB
+================================================== */
+
+const loader =
+  new GLTFLoader();
+
+
+loader.load(
+
+  './Usakotts_WebAR_1005_PEACH.glb',
+
+
+  function (gltf) {
+
+
+    console.log(
+      'ウサコッツ読み込み成功'
+    );
+
+
+    const model =
+      gltf.scene;
+
+
+    scene.add(
+      model
+    );
+
+
+
+    if (
+      gltf.animations.length > 0
+    ) {
+
+
+      const clip =
+        gltf.animations[0];
+
+
+      clipDuration =
+        clip.duration;
+
+
+
+      mixer =
+        new THREE.AnimationMixer(
+          model
+        );
+
+
+      action =
+        mixer.clipAction(
+          clip
+        );
+
+
+      action.setLoop(
+
+        THREE.LoopRepeat,
+
+        Infinity
+
+      );
+
+
+      action.play();
+
+
+      mixer.setTime(0);
+
+
+      mixer.timeScale =
+        0;
+
+
+
+      mixer.addEventListener(
+
+        'loop',
+
+        function () {
+
+
+          loopCount++;
+
+
+          seiPlayed =
+            false;
+
+
+          paPlayed =
+            false;
+
+
+          meeePlayed =
+            false;
+
+
+
+          /*
+            467F → 0F
+
+            黒幕を瞬時に解除
+          */
+
+          blackout.style.opacity =
+            '0';
+
+
+
+          bgm.currentTime =
+            0;
+
+
+          bgm.play().catch(
+
+            function (error) {
+
+              console.log(
+                error
+              );
+
+            }
+
+          );
+
+        }
+
+      );
+
+    }
+
+
+
+    modelLoaded =
+      true;
+
+
+    checkReady();
+
+  },
+
+
+  undefined,
+
+
+  function (error) {
+
+
+    console.error(
+
+      'GLB読み込みエラー:',
+
+      error
+
+    );
+
+
+    timer.textContent =
+      'GLB ERROR';
+
+  }
+
+);
+
+
+
+/* ==================================================
+   SE読み込み
+================================================== */
+
+Promise.all([
+
+
+  loadAudioBuffer(
+    './sei.mp3'
+  ),
+
+
+  loadAudioBuffer(
+    './pa.mp3'
+  ),
+
+
+  loadAudioBuffer(
+    './Usakotts_Meee_Sheep02.mp3'
+  )
+
+
+])
+
+
+.then(
+
+  function (buffers) {
+
+
+    seiBuffer =
+      buffers[0];
+
+
+    paBuffer =
+      buffers[1];
+
+
+    meeeBuffer =
+      buffers[2];
+
+
+    audioLoaded =
+      true;
+
+
+    console.log(
+      'SE読み込み完了'
+    );
+
+
+    checkReady();
+
+  }
+
+)
+
+
+.catch(
+
+  function (error) {
+
+
+    console.error(
+
+      'SE読み込みエラー:',
+
+      error
+
+    );
+
+
+    timer.textContent =
+      'SE ERROR';
+
+  }
+
+);
+
+
+
+/* ==================================================
+   START
+================================================== */
+
+startButton.addEventListener(
+
+  'click',
+
+  async function () {
+
+
+    if (
+      !mixer ||
+      !action
+    ) {
+
+      return;
+
+    }
+
+
+
+    if (
+      audioContext.state ===
+      'suspended'
+    ) {
+
+      await audioContext.resume();
+
+    }
+
+
+
+    mixer.setTime(
+      0
+    );
+
+
+    action.time =
+      0;
+
+
+    loopCount =
+      0;
+
+
+
+    seiPlayed =
+      false;
+
+
+    paPlayed =
+      false;
+
+
+    meeePlayed =
+      false;
+
+
+
+    blackout.style.opacity =
+      '0';
+
+
+
+    bgm.pause();
+
+
+    bgm.currentTime =
+      0;
+
+
+
+    bgm.play()
+
+    .then(
+
+      function () {
+
+
+        mixer.timeScale =
+          1;
+
+
+        started =
+          true;
+
+
+        startButton.style.display =
+          'none';
+
+
+        console.log(
+          '春の海スタート'
+        );
+
+      }
+
+    )
+
+
+    .catch(
+
+      function (error) {
+
+
+        console.error(
+
+          'BGM再生エラー:',
+
+          error
+
+        );
+
+      }
+
+    );
+
+  }
+
+);
+
+
+
+/* ==================================================
+   Animation Loop
+================================================== */
+
+const clock =
+  new THREE.Clock();
+
+
+
+function animate() {
+
+
+  requestAnimationFrame(
+    animate
+  );
+
+
+  const delta =
+    clock.getDelta();
+
+
+
+  if (mixer) {
+
+
+    mixer.update(
+      delta
+    );
+
+
+
+    if (started) {
+
+
+      const currentTime =
+        action.time;
+
+
+
+      /* =========================
+         ブラックアウト
+      ========================= */
+
+      if (
+        currentTime >=
+        BLACK_START
+      ) {
+
+
+        let blackAlpha =
+
+          (
+            currentTime -
+            BLACK_START
+          )
+
+          /
+
+          (
+            BLACK_END -
+            BLACK_START
+          );
+
+
+
+        blackAlpha =
+
+          Math.min(
+
+            Math.max(
+
+              blackAlpha,
+
+              0
+
+            ),
+
+            1
+
+          );
+
+
+
+        blackout.style.opacity =
+
+          String(
+            blackAlpha
+          );
+
+      }
+
+
+      else {
+
+
+        blackout.style.opacity =
+          '0';
+
+      }
+
+
+
+      /* =========================
+         セイッ！
+         Gain 5
+      ========================= */
+
+      if (
+
+        !seiPlayed &&
+
+        currentTime >=
+        SEI_TIME
+
+      ) {
+
+
+        playSound(
+
+          seiBuffer,
+
+          5
+
+        );
+
+
+        seiPlayed =
+          true;
+
+      }
+
+
+
+      /* =========================
+         パッ！
+         Gain 10
+      ========================= */
+
+      if (
+
+        !paPlayed &&
+
+        currentTime >=
+        PA_TIME
+
+      ) {
+
+
+        playSound(
+
+          paBuffer,
+
+          10
+
+        );
+
+
+        paPlayed =
+          true;
+
+      }
+
+
+
+      /* =========================
+         メェェ～
+         Gain 3
+      ========================= */
+
+      if (
+
+        !meeePlayed &&
+
+        currentTime >=
+        MEEE_TIME
+
+      ) {
+
+
+        playSound(
+
+          meeeBuffer,
+
+          3
+
+        );
+
+
+        meeePlayed =
+          true;
+
+      }
+
+
+
+      timer.textContent =
+
+        '再生 ' +
+
+        currentTime.toFixed(2) +
+
+        ' / ' +
+
+        clipDuration.toFixed(2) +
+
+        ' 秒  Loop ' +
+
+        loopCount;
+
+    }
+
+  }
+
+
+
+  renderer.render(
+
+    scene,
+
+    camera
+
+  );
+
+}
+
+
+
+animate();
+
+
+
+/* ==================================================
+   Resize
+================================================== */
+
+window.addEventListener(
+
+  'resize',
+
+  function () {
+
+
+    camera.aspect =
+
+      window.innerWidth /
+
+      window.innerHeight;
+
+
+    camera.updateProjectionMatrix();
+
+
+
+    renderer.setSize(
+
+      window.innerWidth,
+
+      window.innerHeight
+
+    );
+
+  }
+
+);
+
+
+</script>
+
+
+</body>
+
+</html>
