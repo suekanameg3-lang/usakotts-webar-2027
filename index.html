@@ -586,15 +586,21 @@ async function init() {
 
         try {
 
-          // 音声再生許可
-          if (audioContext.state === "suspended") {
+console.log("① STARTクリック");
 
-            await audioContext.resume();
+// 音声再生許可
+if (audioContext.state === "suspended") {
+  await audioContext.resume();
+}
 
-          }
+console.log("② AudioContext再開完了");
 
-          // MindAR開始
-          await mindarThree.start();
+// MindAR開始
+console.log("③ MindAR起動開始");
+
+await mindarThree.start();
+
+console.log("④ MindAR起動完了");
 // 表示領域の調査（安全版）
 {
     const debugVideo = document.querySelector("video");
