@@ -166,8 +166,63 @@ let modelLoaded = false;
 let seiPlayed = false;
 let paPlayed = false;
 let meeePlayed = false;
+// BGMの停止予定時刻
+let bgmStopAt = null;
 
+async function startBGM(clipDuration) {
 
+  // 前回の停止予定を解除
+  bgmStopAt = null;
+
+  // 前回の再生を停止
+  bgm.pause();
+  bgm.currentTime = 0;
+
+  const now = audioContext.currentTime;
+
+  // 音量を初期化
+  bgmGain.gain.cancelScheduledValues(now);
+  bgmGain.gain.setValueAtTime(1, now);
+
+  try {
+
+    // BGM再生
+    await bgm.play();
+
+    const fadeDuration =
+      Math.min(BGM_FADE_DURATION, clipDuration);
+
+    const fadeStart =
+      audioContext.currentTime +
+      Math.max(0, clipDuration - BGM_FADE_DURATION);
+
+    const fadeEnd =
+      fadeStart + fadeDuration;
+
+    bgmGain.gain.setValueAtTime(
+      1,
+      audioContext.currentTime
+    );
+
+    bgmGain.gain.setValueCurveAtTime(
+      bgmFadeCurve,
+      fadeStart,
+      fadeDuration
+    );
+
+    // フェード終了時刻を記録
+    bgmStopAt = fadeEnd;
+
+  } catch (error) {
+
+    console.error("BGM再生エラー:", error);
+
+  }
+}
+
+/* =====================================
+   SE再生
+===================================== */
 /* =====================================
    SE読み込み
 ===================================== */
@@ -184,12 +239,6 @@ async function loadAudioBuffer(url) {
 
   return await audioContext.decodeAudioData(arrayBuffer);
 }
-
-
-/* =====================================
-   SE再生
-===================================== */
-
 function playSound(buffer, gainValue) {
 
   if (!buffer) return;
@@ -240,46 +289,7 @@ const bgmFadeCurve = new Float32Array([
    BGM再生
 ===================================== */
 
-async function startBGM(clipDuration) {
 
-  // 前回の再生を停止
-  bgm.pause();
-
-  bgm.currentTime = 0;
-
-  const now = audioContext.currentTime;
-
-  // 音量を初期化
-  bgmGain.gain.cancelScheduledValues(now);
-  bgmGain.gain.setValueAtTime(1, now);
-
-  try {
-
-    // BGM再生
-    await bgm.play();
-
-    // 再生開始時点を基準にフェードを予約
-    const fadeStart =
-      audioContext.currentTime +
-      Math.max(0, clipDuration - BGM_FADE_DURATION);
-
-    bgmGain.gain.setValueAtTime(
-      1,
-      audioContext.currentTime
-    );
-
-    bgmGain.gain.setValueCurveAtTime(
-      bgmFadeCurve,
-      fadeStart,
-      Math.min(BGM_FADE_DURATION, clipDuration)
-    );
-
-  } catch (error) {
-
-    console.error("BGM再生エラー:", error);
-
-  }
-}
 
 
 /* =====================================
@@ -586,14 +596,18 @@ async function init() {
 
         try {
 
-console.log("① STARTクリック");
+          // 音声再生許可
+  console.log("① STARTクリック");
 
 // 音声再生許可
+console.log("AudioContext状態:", audioContext.state);
+
 if (audioContext.state === "suspended") {
   await audioContext.resume();
 }
 
 console.log("② AudioContext再開完了");
+console.log("AudioContext状態:", audioContext.state);
 
 // MindAR開始
 console.log("③ MindAR起動開始");
@@ -663,7 +677,21 @@ console.log("Canvas位置・サイズ:", cr.x, cr.y, cr.width, cr.height);
             const delta = clock.getDelta();
 
             animationElapsed += delta;
+// BGMフェード終了後に再生を停止
+if (
+  bgmStopAt !== null &&
+  audioContext.currentTime >= bgmStopAt
+) {
 
+  bgm.pause();
+
+  bgm.currentTime = 0;
+
+  bgmStopAt = null;
+
+  console.log("BGM停止");
+
+}
             // 現在のループ番号
             const loopIndex =
               Math.floor(animationElapsed / clipDuration);
