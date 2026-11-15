@@ -595,6 +595,32 @@ async function init() {
         startButton.disabled = true;
 
         try {
+// STARTクリック
+console.log("① STARTクリック");
+
+// AudioContextの状態確認
+console.log("AudioContext状態:", audioContext.state);
+
+// AudioContextを再開
+if (audioContext.state === "suspended") {
+  await audioContext.resume();
+}
+
+console.log("② AudioContext再開完了");          
+// BGMの再生許可を事前に取得
+bgmGain.gain.setValueAtTime(0, audioContext.currentTime);
+
+try {
+  await bgm.play();
+
+  bgm.pause();
+  bgm.currentTime = 0;
+
+} catch (error) {
+  console.log("BGM事前再生許可:", error);
+}
+
+bgmGain.gain.setValueAtTime(1, audioContext.currentTime);
 
           // 音声再生許可
   console.log("① STARTクリック");
