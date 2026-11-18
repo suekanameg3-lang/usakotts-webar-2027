@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -89,22 +88,14 @@ import { MindARThree } from "mindar-image-three";
    HTML要素
 ===================================== */
 
-const statusText =
-  document.getElementById("status");
-
-const startButton =
-  document.getElementById("startButton");
-
-const fadeOverlay =
-  document.getElementById("fadeOverlay");
-
-const bgm =
-  document.getElementById("bgm");
+const statusText = document.getElementById("status");
+const startButton = document.getElementById("startButton");
+const fadeOverlay = document.getElementById("fadeOverlay");
+const bgm = document.getElementById("bgm");
 
 
 /* =====================================
-   音声設定
-   30fps基準
+   音声設定 (30fps基準)
 ===================================== */
 
 const FPS = 30;
@@ -133,24 +124,16 @@ const BGM_FADE_DURATION = 4.5;
    Web Audio
 ===================================== */
 
-const AudioContextClass =
-  window.AudioContext || window.webkitAudioContext;
-
-const audioContext =
-  new AudioContextClass();
+const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+const audioContext = new AudioContextClass();
 
 // BGM用Gain
-const bgmGain =
-  audioContext.createGain();
-
+const bgmGain = audioContext.createGain();
 bgmGain.gain.value = 1;
-
 bgmGain.connect(audioContext.destination);
 
 // HTMLAudioElementをWeb Audioへ接続
-const bgmSource =
-  audioContext.createMediaElementSource(bgm);
-
+const bgmSource = audioContext.createMediaElementSource(bgm);
 bgmSource.connect(bgmGain);
 
 // SEバッファ
@@ -166,91 +149,72 @@ let modelLoaded = false;
 let seiPlayed = false;
 let paPlayed = false;
 let meeePlayed = false;
+
 // BGMの停止予定時刻
 let bgmStopAt = null;
 
+
+/* =====================================
+   BGMフェードアウトカーブ
+===================================== */
+
+const bgmFadeCurve = new Float32Array([
+  1.000, 0.985, 0.950, 0.890, 0.800,
+  0.680, 0.530, 0.370, 0.220, 0.110,
+  0.045, 0.010, 0.000
+]);
+
+
+/* =====================================
+   BGM再生関数
+===================================== */
+
 async function startBGM(clipDuration) {
-
-  // 前回の停止予定を解除
   bgmStopAt = null;
-
-  // 前回の再生を停止
   bgm.pause();
   bgm.currentTime = 0;
 
   const now = audioContext.currentTime;
-
-  // 音量を初期化
   bgmGain.gain.cancelScheduledValues(now);
   bgmGain.gain.setValueAtTime(1, now);
 
   try {
-
-    // BGM再生
     await bgm.play();
 
-    const fadeDuration =
-      Math.min(BGM_FADE_DURATION, clipDuration);
+    const fadeDuration = Math.min(BGM_FADE_DURATION, clipDuration);
+    const fadeStart = audioContext.currentTime + Math.max(0, clipDuration - BGM_FADE_DURATION);
+    const fadeEnd = fadeStart + fadeDuration;
 
-    const fadeStart =
-      audioContext.currentTime +
-      Math.max(0, clipDuration - BGM_FADE_DURATION);
+    bgmGain.gain.setValueAtTime(1, audioContext.currentTime);
+    bgmGain.gain.setValueCurveAtTime(bgmFadeCurve, fadeStart, fadeDuration);
 
-    const fadeEnd =
-      fadeStart + fadeDuration;
-
-    bgmGain.gain.setValueAtTime(
-      1,
-      audioContext.currentTime
-    );
-
-    bgmGain.gain.setValueCurveAtTime(
-      bgmFadeCurve,
-      fadeStart,
-      fadeDuration
-    );
-
-    // フェード終了時刻を記録
     bgmStopAt = fadeEnd;
-
   } catch (error) {
-
     console.error("BGM再生エラー:", error);
-
   }
 }
 
+
 /* =====================================
-   SE再生
-===================================== */
-/* =====================================
-   SE読み込み
+   SE読み込み・再生
 ===================================== */
 
 async function loadAudioBuffer(url) {
-
   const response = await fetch(url);
-
   if (!response.ok) {
     throw new Error("音声ファイル読み込み失敗: " + url);
   }
-
   const arrayBuffer = await response.arrayBuffer();
-
   return await audioContext.decodeAudioData(arrayBuffer);
 }
-function playSound(buffer, gainValue) {
 
+function playSound(buffer, gainValue) {
   if (!buffer) return;
 
-  const source =
-    audioContext.createBufferSource();
-
-  const gain =
-    audioContext.createGain();
+  const source = audioContext.createBufferSource();
+  const gain = audioContext.createGain();
 
   source.buffer = buffer;
-
   gain.gain.value = gainValue;
 
   source.connect(gain);
@@ -261,47 +225,13 @@ function playSound(buffer, gainValue) {
 
 
 /* =====================================
-   BGMフェードアウト
-   カーブ状に減衰
-===================================== */
-
-// 最初は緩やかに、最後に向かって
-// 徐々に音量を落とすカーブ
-
-const bgmFadeCurve = new Float32Array([
-  1.000,
-  0.985,
-  0.950,
-  0.890,
-  0.800,
-  0.680,
-  0.530,
-  0.370,
-  0.220,
-  0.110,
-  0.045,
-  0.010,
-  0.000
-]);
-
-
-/* =====================================
-   BGM再生
-===================================== */
-
-
-
-
-/* =====================================
    SEフラグ初期化
 ===================================== */
 
 function resetSEFlags() {
-
   seiPlayed = false;
   paPlayed = false;
   meeePlayed = false;
-
 }
 
 
@@ -310,284 +240,124 @@ function resetSEFlags() {
 ===================================== */
 
 async function init() {
-
   try {
-
     const mindarThree = new MindARThree({
-
       container: document.querySelector("#container"),
-
       imageTargetSrc: "./targets.mind",
-
       maxTrack: 1,
-
       uiLoading: "no",
-
       uiScanning: "no"
-
     });
-
 
     const { renderer, scene, camera } = mindarThree;
 
-
-    /* ===============================
-       カメラ設定
-    =============================== */
-
+    /* カメラ設定 */
     camera.near = 0.001;
     camera.far = 1000;
-
     camera.updateProjectionMatrix();
 
-
-    /* ===============================
-       環境光
-    =============================== */
-
-    const hemiLight =
-      new THREE.HemisphereLight(
-        0xffffff,
-        0x666666,
-        1.0
-      );
-
+    /* 環境光・方向光 */
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x666666, 1.0);
     scene.add(hemiLight);
 
-
-    /* ===============================
-       方向光
-    =============================== */
-
-    const dirLight =
-      new THREE.DirectionalLight(
-        0xffffff,
-        1.0
-      );
-
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
     dirLight.position.set(0, 3, 5);
-
     scene.add(dirLight);
 
-
-    /* ===============================
-       MindARアンカー
-    =============================== */
-
-    const anchor =
-      mindarThree.addAnchor(0);
-
-
+    /* MindARアンカー */
+    const anchor = mindarThree.addAnchor(0);
     const loader = new GLTFLoader();
-
     const clock = new THREE.Clock();
 
-
-    /* ===============================
-       アニメーション変数
-    =============================== */
-
     let mixer = null;
-
     let action = null;
-
     let clipDuration = 0;
-
     let animationElapsed = 0;
+    let currentLoopIndex = -1;
+
+    /* GLB読み込み */
+    loader.load(
+      "./Usakotts_WebAR_1005_PEACH.glb",
+      (gltf) => {
+        const model = gltf.scene;
+        model.position.set(0, 0, 0);
+        model.scale.set(0.21, 0.21, 0.21);
+
+        const arRoot = new THREE.Group();
+        arRoot.position.set(0, 0.50, 0);
+        arRoot.add(model);
+        anchor.group.add(arRoot);
+
+        if (gltf.animations.length > 0) {
+          const clip = gltf.animations[0];
+          clipDuration = clip.duration;
+
+          mixer = new THREE.AnimationMixer(model);
+          action = mixer.clipAction(clip);
+          action.setLoop(THREE.LoopRepeat, Infinity);
+          action.clampWhenFinished = false;
+          action.play();
+          mixer.setTime(0);
+        } else {
+          throw new Error("GLBにアニメーションがありません");
+        }
+
+        modelLoaded = true;
+        checkReady();
+      },
+      undefined,
+      (error) => {
+        console.error(error);
+        statusText.textContent = "GLB読み込みエラー";
+      }
+    );
+
+    /* SE読み込み */
+    Promise.all([
+      loadAudioBuffer("./sei.mp3"),
+      loadAudioBuffer("./pa.mp3"),
+      loadAudioBuffer("./Usakotts_Meee_Sheep02.mp3")
+    ])
+    .then((buffers) => {
+      seiBuffer = buffers[0];
+      paBuffer = buffers[1];
+      meeeBuffer = buffers[2];
+      audioLoaded = true;
+      console.log("SE読み込み完了");
+      checkReady();
+    })
+    .catch((error) => {
+      console.error(error);
+      statusText.textContent = "SE読み込みエラー";
+    });
+
+    function checkReady() {
+      if (modelLoaded && audioLoaded) {
+        startButton.disabled = false;
+        startButton.textContent = "START";
+        statusText.textContent = "モデル・音声読み込み完了";
+      }
+    }
+
+    /* 画像認識メッセージ */
+    anchor.onTargetFound = () => {
+      if (!animationStarted) {
+        statusText.textContent = "画像を認識しました！";
+      }
+    };
+
+    anchor.onTargetLost = () => {
+      if (!animationStarted) {
+        statusText.textContent = "画像を探しています...";
+      }
+    };
 
     let animationStarted = false;
 
-    let currentLoopIndex = -1;
-
-
-    /* ===============================
-       GLB読み込み
-    =============================== */
-
-    loader.load(
-
-      "./Usakotts_WebAR_1005_PEACH.glb",
-
-      (gltf) => {
-
-        const model = gltf.scene;
-
-        // モデル基本位置とサイズ
-        model.position.set(0, 0, 0);
-
-        model.scale.set(0.21, 0.21, 0.21);
-
-
-        // AR全体の位置
-        const arRoot = new THREE.Group();
-
-        arRoot.position.set(0, 0.50, 0);
-
-        arRoot.add(model);
-
-        anchor.group.add(arRoot);
-
-
-        /* ===========================
-           アニメーション設定
-        =========================== */
-
-        if (gltf.animations.length > 0) {
-
-          const clip = gltf.animations[0];
-
-          clipDuration = clip.duration;
-
-          mixer =
-            new THREE.AnimationMixer(model);
-
-          action =
-            mixer.clipAction(clip);
-
-          action.setLoop(
-            THREE.LoopRepeat,
-            Infinity
-          );
-
-          action.clampWhenFinished = false;
-
-          action.play();
-
-          mixer.setTime(0);
-
-          console.log(
-            "Animation duration:",
-            clipDuration
-          );
-
-          console.log(
-            "Blackout duration:",
-            clipDuration - BLACK_START
-          );
-
-        } else {
-
-          throw new Error("GLBにアニメーションがありません");
-
-        }
-
-
-        modelLoaded = true;
-
-        checkReady();
-
-      },
-
-      undefined,
-
-      (error) => {
-
-        console.error(error);
-
-        statusText.textContent =
-          "GLB読み込みエラー";
-
-      }
-
-    );
-
-
-    /* ===============================
-       SE読み込み
-    =============================== */
-
-    Promise.all([
-
-      loadAudioBuffer("./sei.mp3"),
-
-      loadAudioBuffer("./pa.mp3"),
-
-      loadAudioBuffer("./Usakotts_Meee_Sheep02.mp3")
-
-    ])
-
-    .then((buffers) => {
-
-      seiBuffer = buffers[0];
-
-      paBuffer = buffers[1];
-
-      meeeBuffer = buffers[2];
-
-      audioLoaded = true;
-
-      console.log("SE読み込み完了");
-
-      checkReady();
-
-    })
-
-    .catch((error) => {
-
-      console.error(error);
-
-      statusText.textContent =
-        "SE読み込みエラー";
-
-    });
-
-
-    /* ===============================
-       STARTボタン準備
-    =============================== */
-
-    function checkReady() {
-
-      if (modelLoaded && audioLoaded) {
-
-        startButton.disabled = false;
-
-        startButton.textContent = "START";
-
-        statusText.textContent =
-          "モデル・音声読み込み完了";
-
-      }
-
-    }
-
-
-    /* ===============================
-       画像認識
-    =============================== */
-
-    anchor.onTargetFound = () => {
-
-      if (!animationStarted) {
-
-        statusText.textContent =
-          "画像を認識しました！";
-
-      }
-
-    };
-
-
-    anchor.onTargetLost = () => {
-
-      if (!animationStarted) {
-
-        statusText.textContent =
-          "画像を探しています...";
-
-      }
-
-    };
-
-
-    /* ===============================
-       STARTボタン
-    =============================== */
-
+    /* STARTボタン（実機での確実な音声アンロック対応版） */
     startButton.addEventListener(
       "click",
       async () => {
-
         if (!mixer || !action || !clipDuration) {
           return;
         }
@@ -595,290 +365,123 @@ async function init() {
         startButton.disabled = true;
 
         try {
-// STARTクリック
-console.log("① STARTクリック");
+          console.log("① STARTクリック");
 
-// AudioContextの状態確認
-console.log("AudioContext状態:", audioContext.state);
+          // 1. AudioContextの強制復帰（スマホ対策）
+          if (audioContext.state === "suspended") {
+            await audioContext.resume();
+          }
+          console.log("② AudioContext状態:", audioContext.state);
 
-// AudioContextを再開
-if (audioContext.state === "suspended") {
-  await audioContext.resume();
-}
+          // 2. スマホのブラウザ制限を突破するため、全SEを「無音（Gain=0）」で一瞬だけ再生して経路を完全にこじ開ける
+          try {
+            playSound(seiBuffer, 0);
+            playSound(paBuffer, 0);
+            playSound(meeeBuffer, 0);
+            await bgm.play();
+            bgm.pause();
+            bgm.currentTime = 0;
+            console.log("③ 音声エンジン・アンロック完了");
+          } catch (e) {
+            console.log("音声アンロック空打ち注意:", e);
+          }
 
-console.log("② AudioContext再開完了");          
-// BGMの再生許可を事前に取得
-bgmGain.gain.setValueAtTime(0, audioContext.currentTime);
+          // 3. MindAR起動
+          console.log("④ MindAR起動開始");
+          await mindarThree.start();
+          console.log("⑤ MindAR起動完了");
 
-try {
-  await bgm.play();
-
-  bgm.pause();
-  bgm.currentTime = 0;
-
-} catch (error) {
-  console.log("BGM事前再生許可:", error);
-}
-
-bgmGain.gain.setValueAtTime(1, audioContext.currentTime);
-
-          // 音声再生許可
-  console.log("① STARTクリック");
-
-// 音声再生許可
-console.log("AudioContext状態:", audioContext.state);
-
-if (audioContext.state === "suspended") {
-  await audioContext.resume();
-}
-
-console.log("② AudioContext再開完了");
-console.log("AudioContext状態:", audioContext.state);
-
-// MindAR開始
-console.log("③ MindAR起動開始");
-
-await mindarThree.start();
-
-console.log("④ MindAR起動完了");
-// 表示領域の調査（安全版）
-{
-    const debugVideo = document.querySelector("video");
-    const debugCanvas = renderer.domElement;
-
-    const getRect = (element) => {
-        if (!element) return "見つかりません";
-
-        const r = element.getBoundingClientRect();
-
-        return {
-            x: r.x,
-            y: r.y,
-            width: r.width,
-            height: r.height
-        };
-    };
-
-    console.log("画面:", window.innerWidth, window.innerHeight);
- const vr = debugVideo.getBoundingClientRect();
-const cr = debugCanvas.getBoundingClientRect();
-
-console.log("Video位置・サイズ:", vr.x, vr.y, vr.width, vr.height);
-console.log("Canvas位置・サイズ:", cr.x, cr.y, cr.width, cr.height);
-    console.log("Video実解像度:",
-        debugVideo?.videoWidth,
-        debugVideo?.videoHeight
-    );
-}
           animationElapsed = 0;
-
           currentLoopIndex = -1;
-
           resetSEFlags();
 
           fadeOverlay.style.opacity = "0";
 
-          // アニメーションを先頭へ
           mixer.setTime(0);
-
           action.reset();
-
           action.play();
-
           animationStarted = true;
 
           clock.start();
 
           startButton.style.display = "none";
-
           statusText.style.display = "none";
-
 
           /* =========================
              Animation Loop
           ========================= */
-
           renderer.setAnimationLoop(() => {
-
             const delta = clock.getDelta();
-
             animationElapsed += delta;
-// BGMフェード終了後に再生を停止
-if (
-  bgmStopAt !== null &&
-  audioContext.currentTime >= bgmStopAt
-) {
 
-  bgm.pause();
-
-  bgm.currentTime = 0;
-
-  bgmStopAt = null;
-
-  console.log("BGM停止");
-
-}
-            // 現在のループ番号
-            const loopIndex =
-              Math.floor(animationElapsed / clipDuration);
-
-            // ループが切り替わった場合
-            if (loopIndex !== currentLoopIndex) {
-
-              currentLoopIndex = loopIndex;
-
-              resetSEFlags();
-
-              // 次のループ冒頭で暗転解除
-              fadeOverlay.style.opacity = "0";
-
-              // BGMを先頭から再生
-              startBGM(clipDuration);
-
-              console.log(
-                "Loop:",
-                currentLoopIndex + 1
-              );
-
+            // BGM停止判定
+            if (bgmStopAt !== null && audioContext.currentTime >= bgmStopAt) {
+              bgm.pause();
+              bgm.currentTime = 0;
+              bgmStopAt = null;
             }
 
+            // ループ管理
+            const loopIndex = Math.floor(animationElapsed / clipDuration);
+            if (loopIndex !== currentLoopIndex) {
+              currentLoopIndex = loopIndex;
+              resetSEFlags();
+              fadeOverlay.style.opacity = "0";
+              startBGM(clipDuration);
+            }
 
-            // 1周の中での現在位置
-            const cycleTime =
-              animationElapsed % clipDuration;
-
-
-            // GLBアニメーション更新
+            const cycleTime = animationElapsed % clipDuration;
             mixer.setTime(cycleTime);
 
-
-            /* =========================
-               ブラックアウト
-            ========================= */
-
+            /* ブラックアウト制御 */
             if (cycleTime >= BLACK_START) {
-
-              const blackDuration =
-                clipDuration - BLACK_START;
-
-              const blackAlpha =
-                THREE.MathUtils.clamp(
-                  (cycleTime - BLACK_START) /
-                  blackDuration,
-                  0,
-                  1
-                );
-
-              fadeOverlay.style.opacity =
-                String(blackAlpha);
-
-            } else {
-
-              fadeOverlay.style.opacity = "0";
-
-            }
-
-
-            /* =========================
-               セイッ！
-               283F / Gain 5
-            ========================= */
-
-            if (
-  !seiPlayed &&
-  cycleTime >= SEI_TIME
-) {
-
-  playSound(
-    seiBuffer,
-    SEI_GAIN
-  );
-
-  seiPlayed = true;
-
-}
-
-
-            /* =========================
-               パッ！
-               348F / Gain 10
-            ========================= */
-
-            if (
-  !paPlayed &&
-  cycleTime >= PA_TIME + PA_OFFSET
-) {
-
-  playSound(
-    paBuffer,
-    PA_GAIN
-  );
-
-  paPlayed = true;
-
-}
-
-
-            /* =========================
-               メェェ～
-               382F / Gain 3
-            ========================= */
-
-            if (
-              !meeePlayed &&
-              cycleTime >= MEEE_TIME
-            ) {
-
-              playSound(
-                meeeBuffer,
-                MEEE_GAIN
+              const blackDuration = clipDuration - BLACK_START;
+              const blackAlpha = THREE.MathUtils.clamp(
+                (cycleTime - BLACK_START) / blackDuration,
+                0,
+                1
               );
-
-              meeePlayed = true;
-
+              fadeOverlay.style.opacity = String(blackAlpha);
+            } else {
+              fadeOverlay.style.opacity = "0";
             }
 
+            /* SE① セイッ！ */
+            if (!seiPlayed && cycleTime >= SEI_TIME) {
+              playSound(seiBuffer, SEI_GAIN);
+              seiPlayed = true;
+            }
 
-            // 描画
+            /* SE② パッ！ */
+            if (!paPlayed && cycleTime >= PA_TIME + PA_OFFSET) {
+              playSound(paBuffer, PA_GAIN);
+              paPlayed = true;
+            }
+
+            /* SE③ メェェ～ */
+            if (!meeePlayed && cycleTime >= MEEE_TIME) {
+              playSound(meeeBuffer, MEEE_GAIN);
+              meeePlayed = true;
+            }
+
             renderer.render(scene, camera);
-
           });
 
-
         } catch (error) {
-
           console.error(error);
-
           statusText.style.display = "block";
-
-          statusText.textContent =
-            "開始エラー: " + error.message;
-
+          statusText.textContent = "開始エラー: " + error.message;
           startButton.disabled = false;
-
           startButton.style.display = "block";
-
         }
-
       }
     );
 
-
   } catch (error) {
-
     console.error(error);
-
-    statusText.textContent =
-      "ERROR: " + error.message;
-
+    statusText.textContent = "ERROR: " + error.message;
   }
-
 }
-
-
-/* =====================================
-   起動
-===================================== */
 
 init();
 
