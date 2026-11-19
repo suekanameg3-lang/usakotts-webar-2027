@@ -378,10 +378,23 @@ async function init() {
             playSound(seiBuffer, 0);
             playSound(paBuffer, 0);
             playSound(meeeBuffer, 0);
-            await bgm.play();
-            bgm.pause();
-            bgm.currentTime = 0;
-            console.log("③ 音声エンジン・アンロック完了");
+// BGMの仮再生を無音にしてアンロック
+const originalGain = bgmGain.gain.value;
+
+bgmGain.gain.cancelScheduledValues(audioContext.currentTime);
+bgmGain.gain.setValueAtTime(0, audioContext.currentTime);
+
+try {
+  await bgm.play();
+} finally {
+  bgm.pause();
+  bgm.currentTime = 0;
+
+  bgmGain.gain.cancelScheduledValues(audioContext.currentTime);
+  bgmGain.gain.setValueAtTime(originalGain, audioContext.currentTime);
+}
+
+console.log("③ 音声エンジン・アンロック完了");
           } catch (e) {
             console.log("音声アンロック空打ち注意:", e);
           }
